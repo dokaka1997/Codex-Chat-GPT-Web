@@ -13,6 +13,10 @@
 </p>
 
 <p align="center">
+  <a href="README.md">English</a> · <a href="README.vi.md">Tiếng Việt</a>
+</p>
+
+<p align="center">
   <img src="assets/demo.gif" width="960" alt="A live ChatGPT Web turn using the native Codex harness">
 </p>
 
