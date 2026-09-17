@@ -1,6 +1,16 @@
 import { createHash, randomUUID } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import {
+  chmodSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeSync,
+} from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { unzipSync } from "fflate";
 import type { AppConfig, BrowserInteractionMode, TunnelConfig } from "./config";
 import { atomicWriteFile, getConfigDir } from "./config";
@@ -9,9 +19,29 @@ import { runCommand, runChecked } from "./process";
 export const TUNNEL_VERSION = "0.0.12";
 const MIGRATABLE_TUNNEL_VERSIONS = new Set(["0.0.10"]);
 const RELEASE_BASE = `https://github.com/openai/tunnel-client/releases/download/v${TUNNEL_VERSION}`;
+const OFFICIAL_MIRROR_BASE = `https://persistent.oaistatic.com/tunnel-client/v${TUNNEL_VERSION}`;
 const MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024;
+const DEFAULT_DOWNLOAD_TIMEOUT_MS = 180_000;
+const DEFAULT_DOWNLOAD_RETRIES = 4;
+const MIN_DOWNLOAD_RETRIES = 3;
+const MAX_DOWNLOAD_RETRIES = 5;
+const MIN_DOWNLOAD_TIMEOUT_MS = 10_000;
+const MAX_DOWNLOAD_TIMEOUT_MS = 30 * 60_000;
+const DOWNLOAD_TIMEOUT_ENV = "CODEX_WEB_GPT_TUNNEL_DOWNLOAD_TIMEOUT_MS";
+const DOWNLOAD_RETRIES_ENV = "CODEX_WEB_GPT_TUNNEL_DOWNLOAD_RETRIES";
+const DOWNLOAD_MIRRORS_ENV = "CODEX_WEB_GPT_TUNNEL_DOWNLOAD_MIRRORS";
+const MANUAL_ARCHIVE_ENV = "CODEX_WEB_GPT_TUNNEL_CLIENT_ARCHIVE";
 export const TUNNEL_READY_TIMEOUT_MS = 120_000;
 const TUNNEL_STATUS_POLL_INTERVAL_MS = 1_000;
+
+const PINNED_ARCHIVE_SHA256: Readonly<Record<string, string>> = Object.freeze({
+  [`tunnel-client-v${TUNNEL_VERSION}-darwin-amd64.zip`]: "33de53aec680faafedc795f8f8268d6861577bddb871cb2d49529c91f88c2009",
+  [`tunnel-client-v${TUNNEL_VERSION}-darwin-arm64.zip`]: "42fb3138dc9c081d5777cb7e8bd1e041cc48b67c4978dbab3c5167ca1aabca02",
+  [`tunnel-client-v${TUNNEL_VERSION}-linux-amd64.zip`]: "2bb693bd7b5cd28da7ce09cd9e309529dbb33b7cc9dc0058e62a064688f92c81",
+  [`tunnel-client-v${TUNNEL_VERSION}-linux-arm64.zip`]: "6813878a3edb82ebebb32fe5a859bc6327a81cce5bc7b635a2313174d26365d6",
+  [`tunnel-client-v${TUNNEL_VERSION}-windows-amd64.zip`]: "2a2804933924e38a502d62b61f0266cb80d56d65744f4c29876b2bf9c1544356",
+  [`tunnel-client-v${TUNNEL_VERSION}-windows-arm64.zip`]: "65ab54221554481bb1c23b6015b99abe0b7f79b08593f4fb17a9e2e25532281d",
+});
 
 interface TunnelInstallManifest {
   version: 1;
@@ -19,6 +49,20 @@ interface TunnelInstallManifest {
   asset: string;
   archiveSha256: string;
   binarySha256: string;
+}
+
+export interface TunnelDownloadProgress {
+  downloadedBytes: number;
+  totalBytes?: number;
+  percent?: number;
+  resumed: boolean;
+}
+
+export interface TunnelDownloadSettings {
+  timeoutMs: number;
+  retries: number;
+  mirrors: string[];
+  manualArchive?: string;
 }
 
 export function tunnelClientInstallAction(installedVersion: string): "reuse" | "upgrade" {
@@ -31,6 +75,62 @@ function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+function parseIntegerSetting(
+  value: string | undefined,
+  fallback: number,
+  name: string,
+  min: number,
+  max: number,
+): number {
+  if (value === undefined || value.trim() === "") return fallback;
+  if (!/^\d+$/.test(value.trim())) throw new Error(`${name} must be an integer from ${min} to ${max}`);
+  const parsed = Number(value.trim());
+  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${name} must be an integer from ${min} to ${max}`);
+  }
+  return parsed;
+}
+
+function normalizeMirrorBase(value: string): string {
+  const parsed = new URL(value.trim());
+  if (parsed.protocol !== "https:") throw new Error(`${DOWNLOAD_MIRRORS_ENV} entries must use HTTPS`);
+  if (parsed.username || parsed.password) throw new Error(`${DOWNLOAD_MIRRORS_ENV} entries must not include credentials`);
+  parsed.hash = "";
+  parsed.search = "";
+  return parsed.toString().replace(/\/$/, "");
+}
+
+export function resolveTunnelDownloadSettings(
+  environment: NodeJS.ProcessEnv = process.env,
+): TunnelDownloadSettings {
+  const timeoutMs = parseIntegerSetting(
+    environment[DOWNLOAD_TIMEOUT_ENV],
+    DEFAULT_DOWNLOAD_TIMEOUT_MS,
+    DOWNLOAD_TIMEOUT_ENV,
+    MIN_DOWNLOAD_TIMEOUT_MS,
+    MAX_DOWNLOAD_TIMEOUT_MS,
+  );
+  const retries = parseIntegerSetting(
+    environment[DOWNLOAD_RETRIES_ENV],
+    DEFAULT_DOWNLOAD_RETRIES,
+    DOWNLOAD_RETRIES_ENV,
+    MIN_DOWNLOAD_RETRIES,
+    MAX_DOWNLOAD_RETRIES,
+  );
+  const mirrors = (environment[DOWNLOAD_MIRRORS_ENV] ?? "")
+    .split(",")
+    .map(value => value.trim())
+    .filter(Boolean)
+    .map(normalizeMirrorBase);
+  const manualArchive = environment[MANUAL_ARCHIVE_ENV]?.trim();
+  return {
+    timeoutMs,
+    retries,
+    mirrors,
+    ...(manualArchive ? { manualArchive: resolve(manualArchive) } : {}),
+  };
+}
+
 function platformAsset(): string {
   const os = process.platform === "darwin" ? "darwin"
     : process.platform === "linux" ? "linux"
@@ -41,30 +141,177 @@ function platformAsset(): string {
   return `tunnel-client-v${TUNNEL_VERSION}-${os}-${arch}.zip`;
 }
 
-async function fetchBytes(url: string, timeoutMs = 120_000): Promise<Uint8Array> {
+function expectedArchiveChecksum(asset: string): string {
+  const checksum = PINNED_ARCHIVE_SHA256[asset];
+  if (!checksum) throw new Error(`No pinned SHA-256 checksum is available for ${asset}`);
+  return checksum;
+}
+
+export function tunnelDownloadSources(asset: string, mirrors: string[] = []): string[] {
+  const bases = [RELEASE_BASE, ...mirrors, OFFICIAL_MIRROR_BASE];
+  const unique = [...new Set(bases.map(base => base.replace(/\/$/, "")))];
+  return unique.map(base => `${base}/${asset}`);
+}
+
+function contentRangeTotal(value: string | null): { start?: number; total?: number } {
+  if (!value) return {};
+  const match = /^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i.exec(value.trim());
+  if (!match) return {};
+  return {
+    start: Number(match[1]),
+    ...(match[3] !== "*" ? { total: Number(match[3]) } : {}),
+  };
+}
+
+export async function downloadFileWithResume(
+  url: string,
+  destination: string,
+  options: {
+    timeoutMs: number;
+    maxBytes?: number;
+    onProgress?: (progress: TunnelDownloadProgress) => void;
+  },
+): Promise<void> {
+  const maxBytes = options.maxBytes ?? MAX_DOWNLOAD_BYTES;
+  mkdirSync(dirname(destination), { recursive: true, mode: 0o700 });
+  let existingBytes = existsSync(destination) ? statSync(destination).size : 0;
+  if (existingBytes > maxBytes) {
+    rmSync(destination, { force: true });
+    existingBytes = 0;
+  }
+
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
   try {
-    const response = await fetch(url, { redirect: "follow", signal: controller.signal });
+    const response = await fetch(url, {
+      redirect: "follow",
+      signal: controller.signal,
+      headers: existingBytes > 0 ? { Range: `bytes=${existingBytes}-` } : undefined,
+    });
+    if (response.status === 416 && existingBytes > 0) return;
     if (!response.ok) throw new Error(`Download failed (${response.status}): ${url}`);
-    const length = Number(response.headers.get("content-length") ?? "0");
-    if (Number.isFinite(length) && length > MAX_DOWNLOAD_BYTES) throw new Error(`Download exceeds ${MAX_DOWNLOAD_BYTES} bytes: ${url}`);
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > MAX_DOWNLOAD_BYTES) throw new Error(`Download exceeds ${MAX_DOWNLOAD_BYTES} bytes: ${url}`);
-    return bytes;
+
+    let append = existingBytes > 0 && response.status === 206;
+    const range = contentRangeTotal(response.headers.get("content-range"));
+    if (append && range.start !== existingBytes) {
+      throw new Error(`Download resume offset mismatch for ${url}`);
+    }
+    if (!append && existingBytes > 0) {
+      existingBytes = 0;
+      rmSync(destination, { force: true });
+    }
+
+    const contentLength = Number(response.headers.get("content-length") ?? "0");
+    const totalBytes = range.total
+      ?? (Number.isFinite(contentLength) && contentLength > 0 ? existingBytes + contentLength : undefined);
+    if (totalBytes !== undefined && totalBytes > maxBytes) {
+      throw new Error(`Download exceeds ${maxBytes} bytes: ${url}`);
+    }
+    let downloadedBytes = existingBytes;
+    let previousPercent = -1;
+    const emitProgress = () => {
+      const percent = totalBytes && totalBytes > 0
+        ? Math.min(100, Math.floor((downloadedBytes / totalBytes) * 100))
+        : undefined;
+      if (percent !== undefined && percent === previousPercent) return;
+      if (percent !== undefined) previousPercent = percent;
+      options.onProgress?.({ downloadedBytes, totalBytes, percent, resumed: append });
+    };
+    emitProgress();
+
+    if (!response.body) throw new Error(`Download returned no response body: ${url}`);
+    const file = openSync(destination, append ? "a" : "w");
+    try {
+      const reader = response.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value || value.byteLength === 0) continue;
+        downloadedBytes += value.byteLength;
+        if (downloadedBytes > maxBytes) throw new Error(`Download exceeds ${maxBytes} bytes: ${url}`);
+        writeSync(file, value);
+        emitProgress();
+      }
+    } finally {
+      closeSync(file);
+    }
+    if (totalBytes !== undefined && downloadedBytes < totalBytes) {
+      throw new Error(`Download ended early at ${downloadedBytes} of ${totalBytes} bytes: ${url}`);
+    }
+    if (previousPercent !== 100) {
+      options.onProgress?.({ downloadedBytes, totalBytes: totalBytes ?? downloadedBytes, percent: 100, resumed: append });
+    }
   } catch (error) {
-    if (controller.signal.aborted) throw new Error(`Download timed out after ${timeoutMs}ms: ${url}`);
+    if (controller.signal.aborted) throw new Error(`Download timed out after ${options.timeoutMs}ms: ${url}`);
     throw error;
   } finally {
     clearTimeout(timeout);
   }
 }
 
-function parseExpectedChecksum(text: string, asset: string): string {
-  const line = text.split(/\r?\n/).find(candidate => candidate.trim().endsWith(asset));
-  const checksum = line?.trim().split(/\s+/)[0]?.toLowerCase();
-  if (!checksum || !/^[a-f0-9]{64}$/.test(checksum)) throw new Error(`SHA256SUMS.txt has no valid entry for ${asset}`);
-  return checksum;
+function readVerifiedArchive(archivePath: string, asset: string, expected: string): Uint8Array {
+  if (!existsSync(archivePath)) throw new Error(`Selected tunnel-client ZIP does not exist: ${archivePath}`);
+  const stat = statSync(archivePath);
+  if (!stat.isFile()) throw new Error(`Selected tunnel-client ZIP is not a regular file: ${archivePath}`);
+  if (stat.size < 1 || stat.size > MAX_DOWNLOAD_BYTES) {
+    throw new Error(`Selected tunnel-client ZIP has an invalid size: ${archivePath}`);
+  }
+  const archive = new Uint8Array(readFileSync(archivePath));
+  const actual = sha256(archive);
+  if (actual !== expected) {
+    throw new Error(`SHA-256 verification failed for ${asset}; selected ZIP does not match the pinned release`);
+  }
+  return archive;
+}
+
+async function downloadVerifiedArchive(
+  asset: string,
+  expected: string,
+  settings: TunnelDownloadSettings,
+): Promise<{ archive: Uint8Array; partialPath?: string }> {
+  if (settings.manualArchive) {
+    process.stdout.write("Tunnel client download: 100%\n");
+    return { archive: readVerifiedArchive(settings.manualArchive, asset, expected) };
+  }
+
+  const downloadDir = join(getConfigDir(), "downloads");
+  mkdirSync(downloadDir, { recursive: true, mode: 0o700 });
+  const partialPath = join(downloadDir, `${asset}.part`);
+  const sources = tunnelDownloadSources(asset, settings.mirrors);
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= settings.retries; attempt += 1) {
+    const url = sources[(attempt - 1) % sources.length];
+    try {
+      if (!existsSync(partialPath) || statSync(partialPath).size === 0) {
+        process.stdout.write("Tunnel client download: 0%\n");
+      }
+      let lastReported = -1;
+      await downloadFileWithResume(url, partialPath, {
+        timeoutMs: settings.timeoutMs,
+        maxBytes: MAX_DOWNLOAD_BYTES,
+        onProgress: progress => {
+          if (progress.percent === undefined || progress.percent === lastReported) return;
+          lastReported = progress.percent;
+          process.stdout.write(`Tunnel client download: ${progress.percent}%\n`);
+        },
+      });
+      const archive = new Uint8Array(readFileSync(partialPath));
+      const actual = sha256(archive);
+      if (actual !== expected) {
+        rmSync(partialPath, { force: true });
+        throw new Error(`SHA-256 verification failed for ${asset}`);
+      }
+      return { archive, partialPath };
+    } catch (error) {
+      lastError = error;
+      if (attempt < settings.retries) {
+        await new Promise(resolveRetry => setTimeout(resolveRetry, Math.min(1_000 * (2 ** (attempt - 1)), 8_000)));
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError ?? "Unknown download failure"));
 }
 
 function binaryPath(): string {
@@ -106,13 +353,18 @@ export async function installTunnelClient(): Promise<string> {
   }
 
   const asset = platformAsset();
-  const [archive, sums] = await Promise.all([
-    fetchBytes(`${RELEASE_BASE}/${asset}`),
-    fetchBytes(`${RELEASE_BASE}/SHA256SUMS.txt`),
-  ]);
-  const expected = parseExpectedChecksum(new TextDecoder().decode(sums), asset);
+  const expected = expectedArchiveChecksum(asset);
+  let downloaded: { archive: Uint8Array; partialPath?: string };
+  try {
+    const settings = resolveTunnelDownloadSettings();
+    downloaded = await downloadVerifiedArchive(asset, expected, settings);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Tunnel client download failed: ${detail}`);
+  }
+  const archive = downloaded.archive;
   const archiveHash = sha256(archive);
-  if (archiveHash !== expected) throw new Error(`Checksum mismatch for ${asset}`);
+  if (archiveHash !== expected) throw new Error(`Tunnel client download failed: SHA-256 verification failed for ${asset}`);
   const files = unzipSync(archive);
   const expectedName = process.platform === "win32" ? "tunnel-client.exe" : "tunnel-client";
   const entry = Object.entries(files).find(([name]) => basename(name) === expectedName);
@@ -142,6 +394,7 @@ export async function installTunnelClient(): Promise<string> {
     atomicWriteFile(executable, binary);
     if (process.platform !== "win32") chmodSync(executable, 0o700);
     atomicWriteFile(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+    if (downloaded.partialPath) rmSync(downloaded.partialPath, { force: true });
   } catch (error) {
     if (previousInstallation) {
       atomicWriteFile(executable, previousInstallation.binary);

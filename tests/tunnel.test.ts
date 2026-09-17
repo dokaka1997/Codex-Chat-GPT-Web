@@ -1,5 +1,19 @@
 import { describe, expect, test } from "bun:test";
-import { TUNNEL_VERSION, parseTunnelStatus, tunnelClientInstallAction, tunnelCommandOutput, tunnelConnectLaunchError } from "../src/tunnel";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  TUNNEL_VERSION,
+  downloadFileWithResume,
+  parseTunnelStatus,
+  resolveTunnelDownloadSettings,
+  tunnelClientInstallAction,
+  tunnelCommandOutput,
+  tunnelConnectLaunchError,
+  tunnelDownloadSources,
+} from "../src/tunnel";
 
 test("pins the fixed tunnel-client and migrates only the previously shipped version", () => {
   expect(TUNNEL_VERSION).toBe("0.0.12");
@@ -7,6 +21,78 @@ test("pins the fixed tunnel-client and migrates only the previously shipped vers
   expect(tunnelClientInstallAction("0.0.10")).toBe("upgrade");
   expect(() => tunnelClientInstallAction("0.0.11")).toThrow("not a trusted upgrade source");
   expect(() => tunnelClientInstallAction("9.9.9")).toThrow("not a trusted upgrade source");
+});
+
+describe("tunnel-client download settings", () => {
+  test("uses safe defaults and accepts bounded overrides", () => {
+    expect(resolveTunnelDownloadSettings({})).toEqual({
+      timeoutMs: 180_000,
+      retries: 4,
+      mirrors: [],
+    });
+    expect(resolveTunnelDownloadSettings({
+      CODEX_WEB_GPT_TUNNEL_DOWNLOAD_TIMEOUT_MS: "240000",
+      CODEX_WEB_GPT_TUNNEL_DOWNLOAD_RETRIES: "5",
+      CODEX_WEB_GPT_TUNNEL_DOWNLOAD_MIRRORS: "https://mirror.example/tunnel/ , https://backup.example/releases",
+      CODEX_WEB_GPT_TUNNEL_CLIENT_ARCHIVE: "./manual.zip",
+    })).toEqual({
+      timeoutMs: 240_000,
+      retries: 5,
+      mirrors: ["https://mirror.example/tunnel", "https://backup.example/releases"],
+      manualArchive: expect.stringContaining("manual.zip"),
+    });
+    expect(() => resolveTunnelDownloadSettings({ CODEX_WEB_GPT_TUNNEL_DOWNLOAD_RETRIES: "2" }))
+      .toThrow("must be an integer from 3 to 5");
+    expect(() => resolveTunnelDownloadSettings({ CODEX_WEB_GPT_TUNNEL_DOWNLOAD_MIRRORS: "http://mirror.example" }))
+      .toThrow("must use HTTPS");
+  });
+
+  test("falls back from GitHub through custom mirrors to the official OpenAI CDN", () => {
+    const asset = `tunnel-client-v${TUNNEL_VERSION}-darwin-arm64.zip`;
+    expect(tunnelDownloadSources(asset, ["https://mirror.example/tunnel"])).toEqual([
+      `https://github.com/openai/tunnel-client/releases/download/v${TUNNEL_VERSION}/${asset}`,
+      `https://mirror.example/tunnel/${asset}`,
+      `https://persistent.oaistatic.com/tunnel-client/v${TUNNEL_VERSION}/${asset}`,
+    ]);
+  });
+
+  test("resumes a partial ZIP with an HTTP Range request and reports progress", async () => {
+    const root = mkdtempSync(join(tmpdir(), "codex-tunnel-resume-"));
+    const destination = join(root, "tunnel.zip.part");
+    const payload = Buffer.from("0123456789abcdefghijklmnopqrstuvwxyz");
+    const prefix = payload.subarray(0, 10);
+    writeFileSync(destination, prefix);
+    let rangeHeader: string | undefined;
+    const server = createServer((request, response) => {
+      rangeHeader = request.headers.range;
+      const remaining = payload.subarray(prefix.length);
+      response.writeHead(206, {
+        "Content-Length": String(remaining.byteLength),
+        "Content-Range": `bytes ${prefix.length}-${payload.length - 1}/${payload.length}`,
+        "Content-Type": "application/zip",
+      });
+      response.end(remaining);
+    });
+    const progress: number[] = [];
+    try {
+      await new Promise<void>(resolveListen => server.listen(0, "127.0.0.1", resolveListen));
+      const address = server.address() as AddressInfo;
+      await downloadFileWithResume(`http://127.0.0.1:${address.port}/tunnel.zip`, destination, {
+        timeoutMs: 5_000,
+        maxBytes: 1_024,
+        onProgress: update => {
+          if (update.percent !== undefined) progress.push(update.percent);
+        },
+      });
+      expect(rangeHeader).toBe(`bytes=${prefix.length}-`);
+      expect(readFileSync(destination)).toEqual(payload);
+      expect(progress.at(-1)).toBe(100);
+      expect(progress.some(percent => percent > 0 && percent < 100)).toBe(true);
+    } finally {
+      await new Promise<void>(resolveClose => server.close(() => resolveClose()));
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("tunnel status boundary", () => {

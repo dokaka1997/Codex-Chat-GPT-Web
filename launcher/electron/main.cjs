@@ -57,7 +57,9 @@ const FACEBOOK_URL = "https://web.facebook.com/daovando1997/";
 const CONNECTORS_URL = "https://chatgpt.com/#settings/Plugins";
 const TUNNELS_URL = "https://platform.openai.com/settings/organization/tunnels";
 const KEYS_URL = "https://platform.openai.com/settings/organization/api-keys";
-const ALLOWED_EXTERNAL_URLS = new Set([GITHUB_URL, FACEBOOK_URL, CONNECTORS_URL, TUNNELS_URL, KEYS_URL]);
+const TUNNEL_CLIENT_RELEASE_URL = "https://github.com/openai/tunnel-client/releases/tag/v0.0.12";
+const TUNNEL_CLIENT_ARCHIVE_ENV = "CODEX_WEB_GPT_TUNNEL_CLIENT_ARCHIVE";
+const ALLOWED_EXTERNAL_URLS = new Set([GITHUB_URL, FACEBOOK_URL, CONNECTORS_URL, TUNNELS_URL, KEYS_URL, TUNNEL_CLIENT_RELEASE_URL]);
 const PACKAGED_RENDERER_URL = pathToFileURL(path.join(__dirname, "..", "dist", "index.html")).href;
 const APP_ICON_PATH = path.join(__dirname, "..", "assets", "icon.png");
 
@@ -98,6 +100,8 @@ let lastOperation = null;
 let catalogVerificationTimer = null;
 let catalogVerificationInFlight = false;
 let updateController = null;
+let tunnelDownloadProgressWindow = null;
+let tunnelDownloadProgressPercent = 0;
 
 function findFreePort() {
   return new Promise((resolve, reject) => {
@@ -118,8 +122,75 @@ function send(channel, value) {
   }
 }
 
+function closeTunnelDownloadProgress() {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(-1);
+  if (tunnelDownloadProgressWindow && !tunnelDownloadProgressWindow.isDestroyed()) {
+    tunnelDownloadProgressWindow.destroy();
+  }
+  tunnelDownloadProgressWindow = null;
+  tunnelDownloadProgressPercent = 0;
+}
+
+function renderTunnelDownloadProgress() {
+  const window = tunnelDownloadProgressWindow;
+  if (!window || window.isDestroyed() || window.webContents.isDestroyed() || window.webContents.isLoading()) return;
+  const percent = Math.max(0, Math.min(100, Math.round(tunnelDownloadProgressPercent)));
+  window.setTitle(`Downloading tunnel client — ${percent}%`);
+  window.setProgressBar(percent / 100);
+  void window.webContents.executeJavaScript(
+    `document.getElementById("tunnel-percent").textContent = "${percent}%";`
+      + `document.getElementById("tunnel-progress").value = ${percent};`,
+  ).catch(() => {});
+}
+
+function showTunnelDownloadProgress(percent) {
+  tunnelDownloadProgressPercent = percent;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(percent / 100);
+  if (!tunnelDownloadProgressWindow || tunnelDownloadProgressWindow.isDestroyed()) {
+    const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+    const progressWindow = new BrowserWindow({
+      width: 420,
+      height: 170,
+      ...(parent ? { parent, modal: true } : {}),
+      show: false,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      closable: false,
+      title: `Downloading tunnel client — ${percent}%`,
+      backgroundColor: "#181818",
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+    progressWindow.setMenuBarVisibility(false);
+    progressWindow.on("closed", () => {
+      if (tunnelDownloadProgressWindow === progressWindow) tunnelDownloadProgressWindow = null;
+    });
+    progressWindow.webContents.once("did-finish-load", () => renderTunnelDownloadProgress());
+    progressWindow.once("ready-to-show", () => {
+      if (!progressWindow.isDestroyed()) progressWindow.show();
+    });
+    const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><style>body{margin:0;background:#181818;color:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{padding:28px}strong{display:block;font-size:16px;margin-bottom:10px}#tunnel-percent{font-size:30px;font-weight:700;margin-bottom:14px}progress{width:100%;height:10px}</style></head><body><main><strong>Downloading tunnel client</strong><div id="tunnel-percent">0%</div><progress id="tunnel-progress" max="100" value="0"></progress></main></body></html>`;
+    tunnelDownloadProgressWindow = progressWindow;
+    void progressWindow.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(html)}`).catch(() => closeTunnelDownloadProgress());
+  }
+  renderTunnelDownloadProgress();
+}
+
 function publishOperation(operation) {
   lastOperation = operation;
+  const progress = operation?.status === "running"
+    ? /^Tunnel client download: (\d{1,3})%$/.exec(operation.message || "")
+    : null;
+  if (progress) {
+    showTunnelDownloadProgress(Number(progress[1]));
+  } else if (tunnelDownloadProgressWindow
+    && (operation?.status !== "running" || tunnelDownloadProgressPercent >= 100)) {
+    closeTunnelDownloadProgress();
+  }
   send("launcher:operation", operation);
 }
 
@@ -342,6 +413,61 @@ async function openWebUrl(url) {
     throw new Error(`Refusing to open a non-web URL: ${parsed.protocol}`);
   }
   await shell.openExternal(parsed.toString());
+}
+
+async function withTunnelClientArchive(archivePath, forceNetwork, action) {
+  const previous = process.env[TUNNEL_CLIENT_ARCHIVE_ENV];
+  if (archivePath) process.env[TUNNEL_CLIENT_ARCHIVE_ENV] = archivePath;
+  else if (forceNetwork) delete process.env[TUNNEL_CLIENT_ARCHIVE_ENV];
+  try {
+    return await action();
+  } finally {
+    if (previous === undefined) delete process.env[TUNNEL_CLIENT_ARCHIVE_ENV];
+    else process.env[TUNNEL_CLIENT_ARCHIVE_ENV] = previous;
+  }
+}
+
+function isTunnelClientDownloadFailure(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("Tunnel client download failed:");
+}
+
+async function promptTunnelDownloadRecovery(error) {
+  const detail = error instanceof Error ? error.message : String(error);
+  for (;;) {
+    const options = {
+      type: "error",
+      title: "Tunnel client download failed",
+      message: "Tunnel client download failed",
+      detail: `Automatic download could not finish. You can retry, select the matching ZIP downloaded manually, or open the official release page.\n\n${detail.slice(0, 1_500)}`,
+      buttons: ["Retry", "Select downloaded ZIP", "Open download page"],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    };
+    const result = mainWindow && !mainWindow.isDestroyed()
+      ? await dialog.showMessageBox(mainWindow, options)
+      : await dialog.showMessageBox(options);
+    if (result.response === 0) return { archivePath: undefined, forceNetwork: true };
+    if (result.response === 1) {
+      const picker = mainWindow && !mainWindow.isDestroyed()
+        ? await dialog.showOpenDialog(mainWindow, {
+            title: "Select downloaded tunnel-client ZIP",
+            properties: ["openFile"],
+            filters: [{ name: "ZIP archives", extensions: ["zip"] }],
+          })
+        : await dialog.showOpenDialog({
+            title: "Select downloaded tunnel-client ZIP",
+            properties: ["openFile"],
+            filters: [{ name: "ZIP archives", extensions: ["zip"] }],
+          });
+      if (!picker.canceled && picker.filePaths[0]) {
+        return { archivePath: picker.filePaths[0], forceNetwork: false };
+      }
+      continue;
+    }
+    await openWebUrl(TUNNEL_CLIENT_RELEASE_URL);
+  }
 }
 
 function rendererNavigationAllowed(value) {
@@ -789,16 +915,33 @@ function registerIpc({ logger, stateStore }) {
     const setup = IS_DEV_PROFILE
       ? runtimeHost.setupDevMcp.bind(runtimeHost)
       : runtimeHost.setupMcp.bind(runtimeHost);
-    const runSetup = afterRuntimeReady => setup({
-      tunnelId: typeof input?.tunnelId === "string" ? input.tunnelId.trim() : "",
-      runtimeKey: typeof input?.runtimeKey === "string" ? input.runtimeKey : "",
-      replace: input?.replace === true,
-      interactionMode,
-    }, afterRuntimeReady);
+    const executeSetup = (archivePath, forceNetwork) => {
+      const runSetup = afterRuntimeReady => withTunnelClientArchive(archivePath, forceNetwork, () => setup({
+        tunnelId: typeof input?.tunnelId === "string" ? input.tunnelId.trim() : "",
+        runtimeKey: typeof input?.runtimeKey === "string" ? input.runtimeKey : "",
+        replace: input?.replace === true,
+        interactionMode,
+      }, afterRuntimeReady));
+      return interactionModeChange
+        ? browserHost.withInteractionModeChange(interactionMode, runSetup)
+        : runSetup();
+    };
     if (!interactionModeChange && interactionMode === "automatic") await browserHost.reveal();
-    const result = interactionModeChange
-      ? await browserHost.withInteractionModeChange(interactionMode, runSetup)
-      : await runSetup();
+    let archivePath;
+    let forceNetwork = false;
+    let result;
+    for (;;) {
+      try {
+        result = await executeSetup(archivePath, forceNetwork);
+        break;
+      } catch (error) {
+        if (!isTunnelClientDownloadFailure(error)) throw error;
+        closeTunnelDownloadProgress();
+        const recovery = await promptTunnelDownloadRecovery(error);
+        archivePath = recovery.archivePath;
+        forceNetwork = recovery.forceNetwork;
+      }
+    }
     const state = stateStore.update({
       browserInteractionMode: interactionMode,
       ...(interactionMode === "manual" ? { experimentalBiggerContext: false, experimentalSkillAttachments: false } : {}),
