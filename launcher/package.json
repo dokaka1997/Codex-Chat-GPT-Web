@@ -1,9 +1,9 @@
 {
   "name": "codex-web-gpt-launcher",
-  "version": "5.0.8",
+  "version": "5.0.9",
   "private": true,
   "description": "Desktop control center for Codex ChatGPT Web",
-  "author": "miuuyy",
+  "author": "dokaka1997",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {

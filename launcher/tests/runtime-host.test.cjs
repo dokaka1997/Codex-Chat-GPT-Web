@@ -6,6 +6,24 @@ const path = require("node:path");
 const { CURRENT_CONNECTOR_NAME, DEV_CONNECTOR_NAME } = require("../electron/connector-identity.cjs");
 const { RuntimeHost } = require("../electron/runtime.cjs");
 
+function canCreateFileSymlink() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-web-gpt-symlink-check-"));
+  try {
+    const target = path.join(root, "target.toml");
+    const alias = path.join(root, "alias.toml");
+    fs.writeFileSync(target, "test\n");
+    fs.symlinkSync(target, alias);
+    return fs.lstatSync(alias).isSymbolicLink();
+  } catch (error) {
+    if (["EPERM", "EACCES", "ENOSYS"].includes(error?.code)) return false;
+    throw error;
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const supportsFileSymlink = canCreateFileSymlink();
+
 function hostFor(existingConfig, interactionMode = "automatic") {
   const host = new RuntimeHost({
     app: {
@@ -1000,7 +1018,10 @@ test("failed terminal migration verifies the unchanged previous runtime instead 
   ]);
 });
 
-test("failed launcher update restores every mutable setup file before restarting the previous runtime", async () => {
+test(
+  "failed launcher update restores every mutable setup file before restarting the previous runtime",
+  { skip: supportsFileSymlink ? false : "file symlinks require OS support or symlink privileges" },
+  async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-web-gpt-setup-checkpoint-"));
   const coreHome = path.join(root, "core");
   const codexHome = path.join(root, "codex");
@@ -1098,7 +1119,8 @@ test("failed launcher update restores every mutable setup file before restarting
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
-});
+  },
+);
 
 test("failed terminal migration restores removed launchd ownership before verifying the old runtime", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-web-gpt-terminal-checkpoint-"));

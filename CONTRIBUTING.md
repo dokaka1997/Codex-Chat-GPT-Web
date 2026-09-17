@@ -1,7 +1,7 @@
 # Contributing
 
 Codex Web GPT was created and is primarily developed and maintained by
-[@miuuyy](https://github.com/miuuyy). Product direction, core architecture, and release decisions
+[@dokaka1997](https://github.com/dokaka1997/). Product direction, core architecture, and release decisions
 remain with the creator. Other contributors listed by GitHub have provided focused external fixes
 rather than shared product or architectural ownership.
 

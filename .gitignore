@@ -3,6 +3,7 @@ dist/
 .*.bun-build
 coverage/
 .DS_Store
+.idea/
 .env
 *.log
 *.pid

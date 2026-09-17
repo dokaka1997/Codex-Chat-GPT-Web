@@ -270,7 +270,7 @@ function Onboarding({
               <WelcomeAction
                 complete={snapshot.state.xOpened}
                 disabled={busy}
-                icon="x"
+                icon="facebook"
                 label={snapshot.state.xOpened ? localized.followed : localized.follow}
                 onClick={() => openSocial("x")}
               />
@@ -562,8 +562,8 @@ function LauncherShell({
                   onClick={() => void api!.openExternal(snapshot.urls.github).catch((cause) => setError(messageOf(cause)))}
                 />
                 <IconButton
-                  icon="x"
-                  label="X"
+                  icon="facebook"
+                  label="Facebook"
                   onClick={() => void api!.openExternal(snapshot.urls.x).catch((cause) => setError(messageOf(cause)))}
                 />
               </div>
@@ -2202,7 +2202,7 @@ function WelcomeAction({
 }: {
   complete: boolean;
   disabled?: boolean;
-  icon: "github" | "x";
+  icon: "github" | "facebook";
   label: string;
   onClick: () => void;
 }) {
