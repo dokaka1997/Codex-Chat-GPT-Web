@@ -3,13 +3,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/dokaka1997/Codex-Chat-GPT-Web/releases/download/v5.0.9/codex-web-gpt-5.0.9-win-x64.exe"><img src="assets/readme/download-windows.svg" width="224" height="64" alt="Windows · x64"></a>&nbsp;
-  <a href="https://github.com/dokaka1997/Codex-Chat-GPT-Web/releases/download/v5.0.9/codex-web-gpt-5.0.9-mac-arm64.dmg"><img src="assets/readme/download-macos.svg" width="224" height="64" alt="macOS · Apple silicon"></a>&nbsp;
-  <a href="https://github.com/dokaka1997/Codex-Chat-GPT-Web/releases/download/v5.0.9/codex-web-gpt-5.0.9-linux-x64.AppImage"><img src="assets/readme/download-linux.svg" width="224" height="64" alt="Linux · x64"></a>
+  <a href="https://github.com/dokaka1997/Codex-Chat-GPT-Web/releases/download/v5.0.10/codex-web-gpt-5.0.10-win-x64.exe"><img src="assets/readme/download-windows.svg" width="224" height="64" alt="Windows · x64"></a>&nbsp;
+  <a href="https://github.com/dokaka1997/Codex-Chat-GPT-Web/releases/download/v5.0.10/codex-web-gpt-5.0.10-mac-arm64.dmg"><img src="assets/readme/download-macos.svg" width="224" height="64" alt="macOS · Apple silicon"></a>&nbsp;
+  <a href="https://github.com/dokaka1997/Codex-Chat-GPT-Web/releases/download/v5.0.10/codex-web-gpt-5.0.10-linux-x64.AppImage"><img src="assets/readme/download-linux.svg" width="224" height="64" alt="Linux · x64"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/dokaka1997/Codex-Chat-GPT-Web/releases/download/v5.0.9/codex-web-gpt-5.0.9-mac-x64.dmg">macOS Intel</a> · <a href="https://github.com/dokaka1997/Codex-Chat-GPT-Web/releases/latest">All releases</a>
+  <a href="https://github.com/dokaka1997/Codex-Chat-GPT-Web/releases/download/v5.0.10/codex-web-gpt-5.0.10-mac-x64.dmg">macOS Intel</a> · <a href="https://github.com/dokaka1997/Codex-Chat-GPT-Web/releases/latest">All releases</a>
 </p>
 
 <p align="center">
