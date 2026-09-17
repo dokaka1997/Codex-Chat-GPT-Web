@@ -7,7 +7,7 @@ const SESSION_REFRESH_REMINDER_INTERVAL_MS = 48 * 60 * 60 * 1000;
 
 const DEFAULT_STATE = Object.freeze({
   version: 1,
-  language: null,
+  language: "en",
   onboardingComplete: false,
   githubOpened: false,
   xOpened: false,
@@ -37,7 +37,7 @@ function readState(filePath) {
     if (!parsed || parsed.version !== 1) return { ...DEFAULT_STATE };
     const state = { ...DEFAULT_STATE, ...parsed };
     delete state.bridgeEnabled;
-    if (state.language !== null && (typeof state.language !== "string" || !Object.hasOwn(languages, state.language))) {
+    if (typeof state.language !== "string" || !Object.hasOwn(languages, state.language)) {
       state.language = DEFAULT_STATE.language;
     }
     for (const key of [
