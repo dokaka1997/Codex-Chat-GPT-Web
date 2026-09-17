@@ -20,7 +20,7 @@ test("supported launcher locales return complete, nonempty dictionaries", () => 
     expect(translated.manualPromptInstruction).toContain("Codex Zero Risk");
   }
 
-  expect(copyFor("vi").install).toBe("Cài model");
-  expect(copyFor("vi").done).toBe("Xong");
-  expect(copyFor("vi").language).toBe("Ngôn ngữ");
+  expect(String(copyFor("vi").install)).toBe("Cài model");
+  expect(String(copyFor("vi").done)).toBe("Xong");
+  expect(String(copyFor("vi").language)).toBe("Ngôn ngữ");
 });
