@@ -10,14 +10,14 @@ const {
   validateSidebarState,
 } = require("../electron/state.cjs");
 
-test("launcher state persists onboarding, language, and autostart atomically", () => {
+test("launcher state persists onboarding, English, and autostart atomically", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-web-gpt-launcher-state-"));
   const file = path.join(root, "state.json");
   try {
     const store = createStateStore(file);
     assert.deepEqual(store.read(), {
       version: 1,
-      language: null,
+      language: "en",
       onboardingComplete: false,
       githubOpened: false,
       xOpened: false,
@@ -36,7 +36,7 @@ test("launcher state persists onboarding, language, and autostart atomically", (
       sessionRefreshReminderAt: null,
     });
     store.update({
-      language: "zh-CN",
+      language: "en",
       onboardingComplete: true,
       keepRunningOnClose: false,
       browserSmokePassed: true,
@@ -44,7 +44,7 @@ test("launcher state persists onboarding, language, and autostart atomically", (
     });
     assert.deepEqual(createStateStore(file).read(), {
       version: 1,
-      language: "zh-CN",
+      language: "en",
       onboardingComplete: true,
       githubOpened: false,
       xOpened: false,
@@ -79,21 +79,19 @@ test("sidebar state accepts only bounded native shell dimensions", () => {
   assert.throws(() => validateSidebarState({ open: true, width: 900 }), /between 240 and 420/);
 });
 
-test("every supported launcher language survives a state update and reload", () => {
-  const languages = require("../electron/languages.json");
+test("launcher accepts only English and migrates old locale values to English", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-web-gpt-locale-state-"));
   const file = path.join(root, "state.json");
   try {
-    for (const language of Object.keys(languages)) {
-      const store = createStateStore(file);
-      store.update({ language, onboardingComplete: true });
-      assert.equal(createStateStore(file).read().language, language);
-      assert.equal(createStateStore(file).read().onboardingComplete, true);
-    }
-    for (const language of ["__proto__", "constructor", "unknown", [], {}]) {
+    const store = createStateStore(file);
+    store.update({ language: "en", onboardingComplete: true });
+    assert.equal(createStateStore(file).read().language, "en");
+    assert.equal(createStateStore(file).read().onboardingComplete, true);
+
+    for (const language of ["zh-CN", "zh-TW", "ja", "ko", "__proto__", "constructor", "unknown", null, [], {}]) {
       fs.writeFileSync(file, JSON.stringify({ version: 1, language, onboardingComplete: true }));
       const state = createStateStore(file).read();
-      assert.equal(state.language, null);
+      assert.equal(state.language, "en");
       assert.equal(state.onboardingComplete, true);
     }
   } finally {
@@ -121,7 +119,7 @@ test("persisted sidebar corruption is repaired without changing the rest of laun
     }));
     assert.deepEqual(createStateStore(file).read(), {
       version: 1,
-      language: "zh-CN",
+      language: "en",
       onboardingComplete: false,
       githubOpened: false,
       xOpened: false,
