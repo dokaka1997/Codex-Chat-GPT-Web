@@ -3,5 +3,10 @@
     "label": "English",
     "marker": "EN",
     "locale": "en"
+  },
+  "vi": {
+    "label": "Tiếng Việt",
+    "marker": "VI",
+    "locale": "vi"
   }
 }
