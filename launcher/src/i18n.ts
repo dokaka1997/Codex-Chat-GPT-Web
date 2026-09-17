@@ -202,17 +202,260 @@ const en = {
   doctorMacTunnelRunning: "macOS tunnel service is installed, loaded, and running",
 } as const;
 
+const vi: Record<keyof typeof en, string> = {
+  product: "Codex Web GPT",
+  devBadge: "DEV",
+  devSetupTitle: "Thiết lập hồ sơ DEV tách biệt",
+  devSetupSubtitle: "Trình duyệt, tài khoản, cấu hình và dữ liệu runtime này được tách riêng khỏi launcher thông thường và Codex.",
+  devCoreSetup: "Hồ sơ DEV",
+  devStepInstall: "Khởi tạo DEV harness",
+  devStepInstallBody: "Lưu khả năng của tài khoản trong DEV home tách biệt. Không cài Codex route, Responses listener hay system service; chế độ Full chỉ quản lý MCP tunnel riêng của nó.",
+  devInstall: "Khởi tạo hồ sơ",
+  devReinstall: "Làm mới hồ sơ",
+  devMcpTitle: "Công cụ mô phỏng qua MCP",
+  devMcpSubtitle: "Kết nối tài khoản ChatGPT riêng này với repository harness tách biệt.",
+  devMcpBody: "DEV launcher luôn giữ MCP tunnel tách biệt ở trạng thái sẵn sàng. Các repository chat có tên sẽ kết nối vào tunnel này và nhận biên nhận mô phỏng rõ ràng cho các thao tác công cụ.",
+  devConnectorIsolationNotice: "Tạo một connector riêng với đúng tên DEV bên dưới. Giữ nguyên Codex Native2 để môi trường production và phát triển repository có thể chạy song song.",
+  devSettingsTitle: "Cài đặt hồ sơ DEV",
+  devKeepRunningBody: "Giữ phiên trình duyệt tách biệt và DEV MCP tunnel hoạt động khi đóng cửa sổ này.",
+  biggerContext: "Ngữ cảnh lớn hơn (thử nghiệm)",
+  biggerContextBody: "Cảnh báo: các lượt nhỏ vẫn được gửi dưới dạng một tin nhắn, còn ngữ cảnh lớn sẽ được chia thành hai hoặc ba tin nhắn. Phần cuối sẽ bắt đầu tác vụ mà không gửi thêm yêu cầu. Tính năng này tăng ngữ cảnh mô hình và ngưỡng compaction lên 3 lần; hãy khởi động lại Codex sau khi thay đổi. Nhiều yêu cầu hơn có thể làm tăng nguy cơ rate limit hoặc cooldown tạm thời. Mặc định tắt.",
+  skillAttachments: "Skills dưới dạng file (thử nghiệm)",
+  skillAttachmentsBody: "Tải các Codex skill được chọn rõ ràng lên dưới dạng file văn bản có tên thay vì chèn trực tiếp vào instruction. Các skill khác vẫn được tải qua tools. Mặc định tắt; dùng chung giới hạn attachment với ảnh.",
+  manualSkillAttachmentsUnavailable: "Tải skill yêu cầu chế độ tương tác trình duyệt tự động.",
+  biggerContextRecommendationTitle: "Dùng ngữ cảnh lớn hơn tối đa 3×",
+  biggerContextRecommendationBody: "Bigger Context gửi tác vụ lớn qua nhiều tin nhắn để ChatGPT Web có thể dùng ngữ cảnh lớn gấp tối đa ba lần. Đây vẫn là tính năng thử nghiệm và có thể làm tăng rate limit hoặc cooldown tạm thời.",
+  biggerContextRecommendationToggleBody: "Chia tác vụ lớn qua nhiều tin nhắn và tăng giới hạn ngữ cảnh cũng như compaction.",
+  tagline: "ChatGPT Web bên trong Codex harness gốc",
+  chooseLanguage: "Chọn ngôn ngữ",
+  chooseLanguageHint: "Bạn có thể thay đổi sau trong Cài đặt.",
+  continue: "Tiếp tục",
+  supportTitle: "Trước khi bắt đầu",
+  supportBody: "Star repository và mở trang Facebook của tôi để giúp nhiều developer biết đến Codex Web GPT hơn.",
+  star: "Star trên GitHub",
+  starred: "Đã mở GitHub",
+  follow: "Mở trang Facebook",
+  followed: "Đã mở Facebook",
+  finishWelcome: "Mở launcher",
+  setup: "Thiết lập",
+  activity: "Hoạt động",
+  settings: "Cài đặt",
+  updateAvailable: "Cập nhật lên",
+  updating: "Đang cập nhật…",
+  workspace: "Workspace",
+  configuration: "Cấu hình",
+  runtime: "Runtime",
+  browser: "Trình duyệt",
+  openChatgpt: "Mở ChatGPT",
+  temporaryChat: "Chat tạm thời",
+  back: "Quay lại",
+  forward: "Tiến tới",
+  reload: "Tải lại",
+  zoomOut: "Thu nhỏ",
+  zoomReset: "Đặt lại zoom",
+  zoomIn: "Phóng to",
+  hideSidebar: "Ẩn sidebar",
+  showSidebar: "Hiện sidebar",
+  resizeSidebar: "Đổi kích thước sidebar",
+  hideTab: "Đóng tab",
+  browserTabLimit: "Có thể mở tối đa năm tab ChatGPT Web cùng lúc. Giới hạn này giúp tránh tạo quá nhiều lưu lượng song song trên tài khoản ChatGPT của bạn.",
+  browserAddress: "Trình duyệt ChatGPT",
+  noActiveTask: "Không có tác vụ đang chạy",
+  noActiveTaskBody: "ChatGPT sẽ xuất hiện ở đây khi Codex bắt đầu một lượt dùng Web model.",
+  browserReady: "Trình duyệt sẵn sàng",
+  showBrowser: "Hiện ChatGPT",
+  hideBrowser: "Ẩn ChatGPT",
+  setupTitle: "Thiết lập Codex Web GPT",
+  setupSubtitle: "Ba bước kiểm tra giúp ChatGPT Web xuất hiện trong model picker gốc của Codex.",
+  coreSetup: "Thiết lập chính",
+  interactionMode: "Cách tương tác với ChatGPT",
+  interactionModeOnboardingBody: "Chọn cách launcher làm việc với ChatGPT. With Automation được chọn mặc định. Bạn có thể thay đổi sau trong Cài đặt.",
+  automaticInteraction: "With Automation",
+  automaticInteractionBody: "Tự động gửi prompt và đọc trạng thái trang ChatGPT. Cơ chế retry có kiểm soát giúp tránh gửi lặp, nhưng browser automation có thể xung đột với điều khoản hoặc chính sách tài khoản của OpenAI.",
+  manualInteraction: "Zero Risk",
+  manualInteractionBody: "Không đọc hoặc thay đổi ChatGPT. Launcher chuẩn bị prompt; bạn tự dán prompt, chọn connector, model và effort rồi gửi.",
+  optional: "Tùy chọn",
+  required: "Bắt buộc",
+  stepAccount: "Đăng nhập ChatGPT",
+  stepAccountBody: "Đăng nhập trực tiếp trong trình duyệt ChatGPT tích hợp. Trạng thái đăng nhập được lưu trong profile riêng của launcher.",
+  signIn: "Mở đăng nhập",
+  passkeySignIn: "Dùng passkey",
+  passkeyContinue: "Tiếp tục",
+  passkeyImporting: "Đang nhập…",
+  passkeyContinueBody: "Hoàn tất đăng nhập bằng passkey trong cửa sổ Chrome riêng, sau đó quay lại đây và chọn Tiếp tục.",
+  checkingSignIn: "Đang kiểm tra phiên đã lưu",
+  verifySignIn: "Kiểm tra đăng nhập",
+  signedIn: "Đã đăng nhập",
+  stepSmoke: "Chạy kiểm tra trình duyệt",
+  stepSmokeBody: "Chọn High, gửi một tin nhắn tạm thời ngắn và xác nhận phản hồi stream hoàn tất.",
+  runSmoke: "Chạy kiểm tra",
+  smokePassed: "Kiểm tra thành công",
+  stepInstall: "Cài vào Codex",
+  stepInstallBody: "Thêm các model ChatGPT Web mà không thay thế catalog gốc của Codex. Route tùy chỉnh hiện tại sẽ được lưu và khôi phục khi tắt bridge.",
+  zeroRiskModelSettings: "Hồ sơ model Zero Risk",
+  zeroRiskModelSettingsBody: "Chọn các dòng model sẽ được cài vào Codex.",
+  zeroRiskDefaultProfile: "Mặc định",
+  zeroRiskDefaultProfileBody: "Chỉ cài ChatGPT Web — Zero Risk.",
+  zeroRiskProProfile: "Pro",
+  zeroRiskProProfileBody: "Cài thêm ChatGPT Web — Zero Risk Pro.",
+  zeroRiskProProfileInfo: "Cung cấp khoảng 250.000 token khả dụng trước compaction. Hãy chọn ChatGPT Pro thủ công ở mỗi lượt. Cần tài khoản ChatGPT Pro; nếu không lượt chạy có thể thất bại, và giới hạn lớn hơn có thể không hoạt động với mọi effort. Zero Risk không thể xác minh gói đăng ký hoặc lựa chọn của bạn.",
+  install: "Cài model",
+  reinstall: "Cài lại",
+  awaitingCodex: "Khởi động lại Codex",
+  restartCodex: "Thoát hoàn toàn Codex, bao gồm cả tiến trình nền, sau đó mở lại để làm mới model picker. Đăng xuất rồi đăng nhập lại hoặc chỉ đóng cửa sổ không được tính là khởi động lại. Hãy giữ launcher này mở.",
+  mcpTitle: "Công cụ Codex gốc qua MCP",
+  mcpSubtitle: "Kết nối ChatGPT với Codex harness đang hoạt động thông qua OpenAI tunnel.",
+  mcpBody: "Cho phép mọi mức effort của ChatGPT Web, bao gồm Pro, sử dụng Codex harness đang hoạt động.",
+  configureMcp: "Cấu hình MCP",
+  mcpReady: "MCP đã cấu hình",
+  close: "Đóng",
+  previous: "Quay lại",
+  next: "Tiếp theo",
+  done: "Xong",
+  guideVideo: "Video hướng dẫn",
+  expandGuideVideo: "Mở rộng video hướng dẫn",
+  closeGuideVideo: "Đóng video mở rộng",
+  mcpStepOne: "Tạo tunnel và API key",
+  mcpStepOneBody: "Tạo OpenAI tunnel, sao chép Tunnel ID và tạo API key thông thường với quyền Tunnels Read + Use (miễn phí; key chỉ cần để chạy tunnel). Đừng quên tạo ChatGPT workspace.",
+  openTunnels: "Mở Tunnels",
+  openKeys: "Tạo API key",
+  mcpStepTwo: "Kết nối local harness",
+  mcpStepTwoBody: "Dán Tunnel ID và API key. Tunnel phải thuộc cùng tài khoản OpenAI sẽ sử dụng ChatGPT plugin. Key được lưu trong bộ nhớ riêng trên máy và không bao giờ được ghi vào log của launcher.",
+  mcpStepTwoHint: "Bạn chỉ có thể thêm MCP connector trong ChatGPT sau khi bước này thành công và tunnel đang chạy.",
+  mcpCatalogRequired: "Chưa thể kết nối harness cho đến khi các model Codex được cài và xác minh. Quay lại Thiết lập, bấm Cài model, khởi động lại Codex một lần và chờ kiểm tra model catalog hoàn tất.",
+  tunnelId: "Tunnel ID",
+  runtimeKey: "API key (không phải Admin key)",
+  connect: "Kết nối harness",
+  reconnect: "Kết nối lại harness",
+  credentialsConfigured: "Đã lưu thông tin tunnel",
+  credentialsConfiguredBody: "Launcher sẽ dùng lại Tunnel ID và API key riêng đã lưu trên thiết bị này.",
+  replaceCredentials: "Thay thông tin đăng nhập",
+  keepCredentials: "Giữ thông tin đã lưu",
+  mcpStepThree: "Gắn ChatGPT connector",
+  mcpStepThreeBody: "Trước khi tạo connector, bật Developer Mode trong ChatGPT Settings. Trong ChatGPT Plugins, tạo connector mới, chọn Tunnel, chọn tunnel đã tạo, đặt Authentication thành None và dùng đúng tên connector hiển thị bên dưới. Mở Permissions và chọn Allow all actions; Allow low-risk actions sẽ chặn command và patch trước khi chúng tới runtime này. Codex harness bên ngoài vẫn áp dụng sandbox và approval của nó. Sau đó xác minh runtime.",
+  manualMcpStepThreeBody: "Tạo connector riêng bên dưới với đúng tên Codex Zero Risk và tự chọn nó ở mỗi lượt Zero Risk. Zero Risk cần tunnel và credentials riêng, tách biệt với chế độ Automatic. Launcher không kiểm tra ChatGPT DOM trong chế độ này.",
+  connectorMigrationNotice: "Nâng cấp từ Codex Native? Giữ nguyên connector cũ và tạo Codex Native2 mới. Không đổi tên hoặc refresh Codex Native. Verify runtime sẽ từ chối cấu hình chỉ có connector cũ.",
+  manualConnectorNotice: "Codex Zero Risk là một connector riêng. Hãy tự chọn nó trước khi gửi mỗi prompt Zero Risk; launcher cố ý không kiểm tra ChatGPT để xác minh lựa chọn này.",
+  openConnectors: "Mở ChatGPT Plugins",
+  connectorName: "Tên connector",
+  verifyRuntime: "Xác minh runtime",
+  checkingChatGptConnector: "Đang kiểm tra ChatGPT connector",
+  doctorProxyHealthy: "Responses proxy hoạt động bình thường tại {endpoint}",
+  doctorTunnelBinaryInstalled: "Đã cài openai/tunnel-client binary cố định phiên bản",
+  doctorTunnelKeyStored: "Tunnel runtime key được lưu riêng tư",
+  doctorTunnelRuntimeOwned: "Launcher đang quản lý tunnel runtime",
+  doctorTunnelRuntimeReady: "Tunnel runtime báo trạng thái sẵn sàng và ổn định",
+  doctorConnectorAvailable: "ChatGPT connector \"{name}\" đang khả dụng",
+  activityTitle: "Hoạt động runtime",
+  activitySubtitle: "Chẩn đoán cục bộ. Hãy export bản đã loại dữ liệu nhạy cảm trước khi chia sẻ; raw log vẫn chỉ nằm trên thiết bị này.",
+  recentActivity: "Sự kiện gần đây",
+  noLogs: "Chưa có sự kiện runtime.",
+  exportSafeLog: "Export log an toàn",
+  settingsTitle: "Cài đặt launcher",
+  general: "Chung",
+  launchAtLogin: "Chạy khi đăng nhập",
+  launchAtLoginBody: "Giữ local Responses route sẵn sàng trước khi Codex mở.",
+  keepRunningOnClose: "Giữ server chạy khi đóng cửa sổ",
+  keepRunningOnCloseBody: "Ẩn launcher xuống system tray để các model gốc và ChatGPT Web vẫn hoạt động.",
+  showDuringTurns: "Hiện trình duyệt trong lúc chạy",
+  showDuringTurnsBody: "Hiện giao diện ChatGPT tích hợp khi có lượt browser đang hoạt động.",
+  manualBiggerContextUnavailable: "Zero Risk đã dùng khoảng compaction cố định 3×. Prompt vẫn được gửi một phần và theo cách thủ công.",
+  manualPromptTitle: "Gửi lượt này trong ChatGPT",
+  manualPromptInstruction: "Prompt đã được sao chép vào clipboard. Dán vào tab ChatGPT đang mở, chọn model và effort bạn muốn, chọn connector Codex Zero Risk, gửi rồi xác nhận bên dưới.",
+  manualPromptCopy: "Sao chép prompt",
+  manualPromptCancel: "Hủy lượt",
+  manualPromptSent: "Đã gửi",
+  manualPromptWaiting: "Đang chờ Codex Zero Risk kết nối",
+  manualPromptRunning: "ChatGPT đang làm việc qua Codex harness",
+  manualPromptSeconds: "giây còn lại",
+  language: "Ngôn ngữ",
+  diagnostics: "Chẩn đoán",
+  runDoctor: "Chạy kiểm tra",
+  cancelTurns: "Hủy lượt Codex đang chạy",
+  cancelTurnsBody: "Dừng HTTP stream đang hoạt động và lượt ChatGPT browser đang được giữ lại.",
+  turnsCancelled: "Đã hủy lượt Codex đang chạy",
+  uninstallIntegration: "Gỡ tích hợp Codex",
+  uninstallIntegrationBody: "Khôi phục Codex model route trước đó và xóa bridge runtime riêng.",
+  integrationRemoved: "Đã gỡ tích hợp; hãy khởi động lại Codex một lần",
+  running: "Đang chạy",
+  complete: "Hoàn tất",
+  failed: "Thất bại",
+  healthy: "Ổn định",
+  needsAttention: "Cần xử lý",
+  loading: "Đang tải",
+  platform: "Nền tảng",
+  version: "Phiên bản",
+  status: "Trạng thái",
+  notConfigured: "Chưa cấu hình",
+  error: "Đã xảy ra lỗi",
+  dismiss: "Đóng",
+  sessionReminderTitle: "Làm mới phiên ChatGPT",
+  sessionReminderBody: "Khuyến nghị đăng nhập lại mỗi hai ngày. Phiên ChatGPT cũ có thể làm gián đoạn các lượt Web model và công cụ MCP.",
+  logOut: "Đăng xuất",
+  checkingLocalRuntime: "Đang kiểm tra local runtime",
+  doctorConfigValid: "Cấu hình hợp lệ ({path})",
+  doctorBrowserReady: "Trình duyệt tích hợp đã đăng nhập và có thể truy cập (pid {pid})",
+  doctorManualBrowserReady: "Trình duyệt tích hợp có thể truy cập cho Zero Risk (pid {pid})",
+  doctorCodexInstalled: "Đã cài route model Codex gốc",
+  doctorRuntimeOwned: "Launcher đang quản lý background runtime",
+  doctorChromeFound: "Đã tìm thấy Chrome executable: {path}",
+  doctorLoginVerified: "Trạng thái đăng nhập ChatGPT đã được xác minh bằng dữ liệu từ trình duyệt",
+  doctorMacServiceLoaded: "Đã nạp background service trên macOS",
+  doctorMacTunnelRunning: "Tunnel service trên macOS đã được cài, nạp và đang chạy",
+};
+
 export type Copy = typeof en;
 
-export function copyFor(_language: Language): Copy {
+export function copyFor(language: Language): Copy {
+  if (language === "vi") return vi as Copy;
   return en;
 }
 
 export function localizeRuntimeMessage(
-  _copy: Copy,
+  copy: Copy,
   message: string,
-  _checkId: string | undefined,
-  _language: Language,
+  checkId: string | undefined,
+  language: Language,
 ): string {
+  if (language !== "vi") return message;
+  if (checkId === undefined && message === "Checking ChatGPT connector") return copy.checkingChatGptConnector;
+  if (checkId === undefined && message === "Checking local runtime") return copy.checkingLocalRuntime;
+  if (checkId === "config") {
+    const match = /^Configuration is valid \((.+)\)$/s.exec(message);
+    if (match) return copy.doctorConfigValid.replace("{path}", () => match[1]);
+  }
+  if (checkId === "browser-host") {
+    const match = /^Embedded launcher browser is (authenticated and reachable|reachable for Zero Risk) \(pid (\d+)\)$/.exec(message);
+    if (match) return (match[1] === "reachable for Zero Risk" ? copy.doctorManualBrowserReady : copy.doctorBrowserReady)
+      .replace("{pid}", () => match[2]);
+  }
+  if (checkId === "codex" && message === "Codex native model route is installed") return copy.doctorCodexInstalled;
+  if (checkId === "service" && message === "Launcher owns the background runtime") return copy.doctorRuntimeOwned;
+  if (checkId === "service" && message === "macOS background service is loaded") return copy.doctorMacServiceLoaded;
+  if (checkId === "chrome") {
+    const match = /^Chrome executable found: (.+)$/s.exec(message);
+    if (match) return copy.doctorChromeFound.replace("{path}", () => match[1]);
+  }
+  if (checkId === "login" && message === "ChatGPT login state has authenticated browser evidence") return copy.doctorLoginVerified;
+  if (checkId === "tunnel-service" && message === "macOS tunnel service is installed, loaded, and running") return copy.doctorMacTunnelRunning;
+  if (checkId === "proxy") {
+    const match = /^Responses proxy is healthy on (127\.0\.0\.1:\d+)$/.exec(message);
+    if (match) return copy.doctorProxyHealthy.replace("{endpoint}", () => match[1]);
+  }
+  if (checkId === "tunnel-binary" && message === "Pinned openai/tunnel-client binary is installed") return copy.doctorTunnelBinaryInstalled;
+  if (checkId === "tunnel-key" && message === "Tunnel runtime key is stored privately") return copy.doctorTunnelKeyStored;
+  if (checkId === "tunnel-service" && message === "Launcher owns the tunnel runtime") return copy.doctorTunnelRuntimeOwned;
+  if (checkId === "tunnel-runtime" && message === "Tunnel runtime reports healthy and ready") return copy.doctorTunnelRuntimeReady;
+  if (checkId === "connector") {
+    const match = /^ChatGPT connector (".*") is available$/s.exec(message);
+    if (match) {
+      try {
+        const connectorName = JSON.parse(match[1]);
+        if (typeof connectorName === "string") return copy.doctorConnectorAvailable.replace("{name}", () => connectorName);
+      } catch {
+        return message;
+      }
+    }
+  }
   return message;
 }
