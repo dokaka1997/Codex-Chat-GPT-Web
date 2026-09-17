@@ -160,21 +160,48 @@ jobs:
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then
             release_flags=(--prerelease --latest=false)
           fi
+
+          upload_release_asset() {
+            local asset="$1"
+            local max_attempts=5
+            local delay=5
+            local attempt
+
+            for attempt in $(seq 1 "$max_attempts"); do
+              echo "Uploading $(basename "$asset") (attempt $attempt/$max_attempts)"
+              if gh release upload "$GITHUB_REF_NAME" "$asset" \
+                --repo "$GITHUB_REPOSITORY" \
+                --clobber; then
+                return 0
+              fi
+
+              if [ "$attempt" -eq "$max_attempts" ]; then
+                echo "Failed to upload $(basename "$asset") after $max_attempts attempts" >&2
+                return 1
+              fi
+
+              echo "Upload failed; retrying in ${delay}s..." >&2
+              sleep "$delay"
+              delay=$((delay * 2))
+            done
+          }
+
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "${release_files[@]}" \
-              --repo "$GITHUB_REPOSITORY" \
-              --clobber
             gh release edit "$GITHUB_REF_NAME" \
               --repo "$GITHUB_REPOSITORY" \
               --draft=false \
               "${release_flags[@]}"
           else
-            gh release create "$GITHUB_REF_NAME" "${release_files[@]}" \
+            gh release create "$GITHUB_REF_NAME" \
               --repo "$GITHUB_REPOSITORY" \
               --title "$GITHUB_REF_NAME" \
               "${release_flags[@]}" \
               --generate-notes
           fi
+
+          for release_file in "${release_files[@]}"; do
+            upload_release_asset "$release_file"
+          done
 
           published_manifest="$(mktemp)"
           gh release view "$GITHUB_REF_NAME" \
@@ -191,9 +218,7 @@ jobs:
             | LC_ALL=C sort -k2 > "$published_manifest"
           test -s "$published_manifest"
           mv "$published_manifest" release-assets/checksums.txt
-          gh release upload "$GITHUB_REF_NAME" release-assets/checksums.txt \
-            --repo "$GITHUB_REPOSITORY" \
-            --clobber
+          upload_release_asset release-assets/checksums.txt
 
           while IFS=$'\t' read -r name digest; do
             if [ "$name" = checksums.txt ]; then continue; fi
