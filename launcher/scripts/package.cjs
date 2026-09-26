@@ -36,6 +36,9 @@ const builderArgs = [
   "never",
 ];
 if (target === "--mac" && !env.CSC_LINK && !env.CSC_NAME) {
+  // electron-builder skips all macOS signing for pull_request builds unless this is set.
+  // This branch uses ad-hoc signing only (identity "-"), so no signing credentials are exposed.
+  env.CSC_FOR_PULL_REQUEST ??= "true";
   builderArgs.push("--config.mac.identity=-");
 }
 
