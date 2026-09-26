@@ -1006,7 +1006,7 @@ class RuntimeHost {
       this.browserDescriptorPath,
       ...this.browserInteractionArgs({
         mode: interactionMode,
-        refreshCapabilities: interactionMode === "automatic",
+        refreshCapabilities: interactionMode === "automatic" && !existing.configured,
       }),
       "--replace-codex-route",
       "--acknowledge-unofficial",
@@ -1038,7 +1038,7 @@ class RuntimeHost {
       this.browserDescriptorPath,
       ...this.browserInteractionArgs({
         mode: interactionMode,
-        refreshCapabilities: interactionMode === "automatic",
+        refreshCapabilities: interactionMode === "automatic" && !existing.configured,
       }),
       "--acknowledge-unofficial",
     ];

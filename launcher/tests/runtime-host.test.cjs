@@ -78,7 +78,7 @@ function devHostFor(existingConfig, interactionMode = "automatic") {
   return { host, invocation: () => invocation };
 }
 
-test("core setup preserves an existing full-harness installation", async () => {
+test("core setup preserves an existing full-harness installation without forcing a capability refresh", async () => {
   const fixture = hostFor({ mode: "full", appName: "Codex Native2" });
   const result = await fixture.host.setupCore();
   assert.equal(result.mode, "full");
@@ -88,7 +88,6 @@ test("core setup preserves an existing full-harness installation", async () => {
     "--browser-host-descriptor",
     "/runtime/launcher-browser.json",
     "--automatic-browser-interaction",
-    "--refresh-account-capabilities",
     "--replace-codex-route",
     "--acknowledge-unofficial",
     "--restart-service",
@@ -110,6 +109,18 @@ test("core setup starts in browser-only mode when no installation exists", async
   assert.equal(fixture.invocation().args.includes("--refresh-account-capabilities"), true);
   assert.equal(fixture.invocation().args.includes("--replace-codex-route"), true);
   assert.equal(fixture.invocation().args.includes("--chrome"), false);
+});
+
+test("core reinstall reuses known Automatic account capabilities", async () => {
+  const fixture = hostFor({
+    mode: "browser-only",
+    browserHost: "launcher",
+    solAvailable: true,
+    extraHighAvailable: false,
+    proAvailable: false,
+  });
+  await fixture.host.setupCore();
+  assert.equal(fixture.invocation().args.includes("--refresh-account-capabilities"), false);
 });
 
 test("core setup refuses an implicit Automatic fallback for a new Zero Risk installation", async () => {
