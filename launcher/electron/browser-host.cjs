@@ -2785,8 +2785,22 @@ class BrowserHost {
   async runSmokeTest() {
     requireAutomaticBrowserInspection(this, "ChatGPT browser smoke test");
     const connectorName = this.connectorName();
+    // Smoke always validates the launcher's primary Temporary Chat surface. A failed or retained
+    // Codex turn may leave a task tab selected; showing the browser without switching home can make
+    // the helper attach to the offscreen home target while the user sees a different healthy tab.
+    this.activateHomeSurface();
     this.show();
     await this.waitForSurfaceReady();
+    if (!isTemporaryChatUrl(this.view.webContents.getURL())) {
+      await this.view.webContents.loadURL(TEMPORARY_CHAT_URL);
+    }
+    const authentication = await this.probeAuthentication();
+    if (!authentication.authenticated) {
+      if (authentication.status === "error" && authentication.message) {
+        throw new Error(authentication.message);
+      }
+      throw new Error("Sign in to ChatGPT before running the browser smoke test");
+    }
     this.setState({ status: "testing", message: "Running browser smoke test" });
     this.logger.info("smoke.started");
     const result = await this.runBrowserHelperOperation({
